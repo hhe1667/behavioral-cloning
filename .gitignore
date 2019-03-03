@@ -1,2 +1,5 @@
 *.h5
+run*/*.jpg
+run*.mp4
+
 
