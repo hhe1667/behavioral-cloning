@@ -37,25 +37,34 @@ def images_generator(img_df, training=True, batch_size=32):
   random.seed(1)
   while True:
     img_df = sku.shuffle(img_df)
-    images = []
-    angles = []
+    batch_images = []
+    batch_angles = []
     for _, row in img_df.iterrows():
-      img = cv2.imread(row["center_img"])
-      img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+      frame_images = [read_img(row[col]) for col in
+                    ["center_img", "left_img", "right_img"]]
       angle = row["steering_angle"]
-      images.append(img)
-      angles.append(angle)
+      correction = 0.2
+      frame_angles = [angle, angle + correction, angle - correction]
+
+      batch_images.extend(frame_images)
+      batch_angles.extend(frame_angles)
 
       # Flipping image
       if training:
-        images.append(np.fliplr(img))
-        angles.append(-angle)
-      if len(images) >= batch_size:
-        X_train = np.array(images[:batch_size])
-        y_train = np.array(angles[:batch_size])
-        del images[:batch_size]
-        del angles[:batch_size]
+        batch_images.extend([np.fliplr(img) for img in frame_images])
+        batch_angles.extend([-angle for angle in frame_angles])
+      if len(batch_images) >= batch_size:
+        X_train = np.array(batch_images[:batch_size])
+        y_train = np.array(batch_angles[:batch_size])
+        del batch_images[:batch_size]
+        del batch_angles[:batch_size]
         yield X_train, y_train
+
+
+def read_img(img_path):
+  img = cv2.imread(img_path)
+  img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+  return img
 
 
 def driving_model(img_df, batch_size=32):
