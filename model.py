@@ -18,6 +18,7 @@ flags.DEFINE_string("root", "~/work/data/behavioral-cloning/IMG/",
                     "Root directory for images.")
 flags.DEFINE_integer("epochs", 10, "Number of epochs.")
 flags.DEFINE_integer("batch_size", 32, "Batch size.")
+flags.DEFINE_float("dropout", None, "Dropout rate.")
 FLAGS = flags.FLAGS
 
 
@@ -81,13 +82,16 @@ def driving_model(img_df, batch_size=32):
   model = Sequential()
   model.add(layers.Lambda(lambda x: x / 255.0 - 0.5, input_shape=(160, 320, 3)))
   model.add(layers.Cropping2D(cropping=((50, 20), (0, 0))))
+  # Batch normalize?
 
   # Conv1, output shape: (156, 316, 6)
   model.add(layers.Conv2D(filters=6, kernel_size=5, strides=1,
                           activation="relu"))
+
   # Output shape: (78, 158, 6)
   model.add(layers.MaxPooling2D(pool_size=2, strides=2))
-  # dropout?
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
 
   # Conv2, output shape: (74, 154, 16)
   model.add(
@@ -95,7 +99,8 @@ def driving_model(img_df, batch_size=32):
                   input_shape=(78, 158, 6)))
   # Output shape: (37, 77, 16)
   model.add(layers.MaxPooling2D(pool_size=2, strides=2))
-  # Dropout?
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
 
   # Flatten
   model.add(layers.Flatten())
