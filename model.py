@@ -41,7 +41,7 @@ def images_generator(img_df, training=True, batch_size=32):
     batch_angles = []
     for _, row in img_df.iterrows():
       frame_images = [read_img(row[col]) for col in
-                    ["center_img", "left_img", "right_img"]]
+                      ["center_img", "left_img", "right_img"]]
       angle = row["steering_angle"]
       correction = 0.2
       frame_angles = [angle, angle + correction, angle - correction]
@@ -68,6 +68,7 @@ def read_img(img_path):
 
 
 def driving_model(img_df, batch_size=32):
+  """Define and train driving model."""
   train_df, valid_df = skms.train_test_split(img_df, test_size=0.2,
                                              random_state=1, shuffle=True)
   train_gen = images_generator(train_df, training=True, batch_size=batch_size)
@@ -79,10 +80,11 @@ def driving_model(img_df, batch_size=32):
 
   model = Sequential()
   model.add(layers.Lambda(lambda x: x / 255.0 - 0.5, input_shape=(160, 320, 3)))
+  model.add(layers.Cropping2D(cropping=((50, 20), (0, 0))))
 
   # Conv1, output shape: (156, 316, 6)
   model.add(layers.Conv2D(filters=6, kernel_size=5, strides=1,
-                          activation="relu", input_shape=(160, 320, 3)))
+                          activation="relu"))
   # Output shape: (78, 158, 6)
   model.add(layers.MaxPooling2D(pool_size=2, strides=2))
   # dropout?
