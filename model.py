@@ -18,7 +18,11 @@ flags.DEFINE_string("root", "~/work/data/behavioral-cloning/IMG/",
                     "Root directory for images.")
 flags.DEFINE_integer("epochs", 10, "Number of epochs.")
 flags.DEFINE_integer("batch_size", 32, "Batch size.")
+flags.DEFINE_float("correction", 0.2,
+                   "Angle correction for left and right camera.")
 flags.DEFINE_float("dropout", None, "Dropout rate.")
+flags.DEFINE_string("network", "lenet", "Model: lenet or nvidia.")
+flags.DEFINE_string("model_file", "model.h5", "Model file to save.")
 FLAGS = flags.FLAGS
 
 
@@ -44,8 +48,7 @@ def images_generator(img_df, training=True, batch_size=32):
       frame_images = [read_img(row[col]) for col in
                       ["center_img", "left_img", "right_img"]]
       angle = row["steering_angle"]
-      correction = 0.2
-      frame_angles = [angle, angle + correction, angle - correction]
+      frame_angles = [angle, angle + FLAGS.correction, angle - FLAGS.correction]
 
       batch_images.extend(frame_images)
       batch_angles.extend(frame_angles)
@@ -82,40 +85,16 @@ def driving_model(img_df, batch_size=32):
   model = Sequential()
   model.add(layers.Lambda(lambda x: x / 255.0 - 0.5, input_shape=(160, 320, 3)))
   model.add(layers.Cropping2D(cropping=((50, 20), (0, 0))))
-  # Batch normalize?
 
-  # Conv1, output shape: (156, 316, 6)
-  model.add(layers.Conv2D(filters=6, kernel_size=5, strides=1,
-                          activation="relu"))
-
-  # Output shape: (78, 158, 6)
-  model.add(layers.MaxPooling2D(pool_size=2, strides=2))
-  if FLAGS.dropout:
-    model.add(layers.Dropout(FLAGS.dropout))
-
-  # Conv2, output shape: (74, 154, 16)
-  model.add(
-    layers.Conv2D(filters=16, kernel_size=5, strides=1, activation="relu",
-                  input_shape=(78, 158, 6)))
-  # Output shape: (37, 77, 16)
-  model.add(layers.MaxPooling2D(pool_size=2, strides=2))
-  if FLAGS.dropout:
-    model.add(layers.Dropout(FLAGS.dropout))
-
-  # Flatten
-  model.add(layers.Flatten())
-
-  # FC1:
-  model.add(layers.Dense(units=120, activation="relu"))
-  # Dropout?
-
-  # FC2:
-  model.add(layers.Dense(units=84, activation="relu"))
-  # Dropout?
-
-  model.add(layers.Dense(1))
+  if FLAGS.network == "lenet":
+    lenet_model(model)
+  elif FLAGS.network == "nvidia":
+    nvidia_model(model)
+  else:
+    raise ValueError("Invalid model.")
 
   model.compile(loss="mse", optimizer="adam")
+  print(model.summary())
 
   model.fit_generator(train_gen, steps_per_epoch=steps_per_epoch,
                       epochs=FLAGS.epochs,
@@ -123,7 +102,54 @@ def driving_model(img_df, batch_size=32):
                       validation_steps=valid_steps,
                       verbose=1)
 
-  model.save("model.h5")
+  model.save(FLAGS.model_file)
+
+
+def lenet_model(model):
+  # Conv1, output shape: (156, 316, 6)
+  model.add(layers.Conv2D(filters=6, kernel_size=5, strides=1,
+                          activation="relu"))
+  # Output shape: (78, 158, 6)
+  model.add(layers.MaxPooling2D(pool_size=2, strides=2))
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
+  # Conv2, output shape: (74, 154, 16)
+  model.add(layers.Conv2D(filters=16, kernel_size=5, strides=1,
+                          activation="relu"))
+  # Output shape: (37, 77, 16)
+  model.add(layers.MaxPooling2D(pool_size=2, strides=2))
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
+  # Flatten
+  model.add(layers.Flatten())
+  # FC1:
+  model.add(layers.Dense(units=120, activation="relu"))
+  # Dropout?
+  # FC2:
+  model.add(layers.Dense(units=84, activation="relu"))
+  # Dropout?
+  model.add(layers.Dense(1))
+
+
+def nvidia_model(model):
+  # https://devblogs.nvidia.com/deep-learning-self-driving-cars/
+  model.add(layers.BatchNormalization())
+  model.add(layers.Conv2D(filters=24, kernel_size=5, strides=2,
+                          activation="relu"))
+  model.add(layers.Conv2D(filters=36, kernel_size=5, strides=2,
+                          activation="relu"))
+  model.add(layers.Conv2D(filters=48, kernel_size=5, strides=2,
+                          activation="relu"))
+  model.add(layers.Conv2D(filters=64, kernel_size=3, strides=2,
+                          activation="relu"))
+  model.add(layers.Conv2D(filters=64, kernel_size=3, strides=1,
+                          activation="relu"))
+  model.add(layers.Flatten())
+  model.add(layers.Dense(units=1164, activation="relu"))
+  model.add(layers.Dense(units=100, activation="relu"))
+  model.add(layers.Dense(units=50, activation="relu"))
+  model.add(layers.Dense(units=10, activation="relu"))
+  model.add(layers.Dense(1))
 
 
 def main(unused_argv):
