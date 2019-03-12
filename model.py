@@ -136,14 +136,28 @@ def nvidia_model(model):
   model.add(layers.BatchNormalization())
   model.add(layers.Conv2D(filters=24, kernel_size=5, strides=2,
                           activation="relu"))
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
   model.add(layers.Conv2D(filters=36, kernel_size=5, strides=2,
                           activation="relu"))
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
+
   model.add(layers.Conv2D(filters=48, kernel_size=5, strides=2,
                           activation="relu"))
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
+
   model.add(layers.Conv2D(filters=64, kernel_size=3, strides=2,
                           activation="relu"))
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
+
   model.add(layers.Conv2D(filters=64, kernel_size=3, strides=1,
                           activation="relu"))
+  if FLAGS.dropout:
+    model.add(layers.Dropout(FLAGS.dropout))
+
   model.add(layers.Flatten())
   model.add(layers.Dense(units=1164, activation="relu"))
   model.add(layers.Dense(units=100, activation="relu"))
