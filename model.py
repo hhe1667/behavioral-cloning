@@ -1,3 +1,15 @@
+"""Code for training the behavior cloning model.
+
+Usage:
+python model.py \
+  --batch_size 32 \
+  --epochs 10 \
+  --dropout 0.2 \
+  --model nvidia \
+  --csv ~/work/data/behavioral-cloning/tracks/driving_log.csv \
+  --root ~/work/data/behavioral-cloning/tracks/img/ \
+  --model_file model.h5
+"""
 import math
 import os.path
 import random
@@ -16,12 +28,13 @@ flags.DEFINE_string("csv", "~/work/data/behavioral-cloning/driving_log.csv",
                     "Driving log CSV file.")
 flags.DEFINE_string("root", "~/work/data/behavioral-cloning/IMG/",
                     "Root directory for images.")
+flags.DEFINE_float("validation_proportion", 0.2, "Validation set proportion.")
 flags.DEFINE_integer("epochs", 10, "Number of epochs.")
 flags.DEFINE_integer("batch_size", 32, "Batch size.")
 flags.DEFINE_float("correction", 0.2,
                    "Angle correction for left and right camera.")
 flags.DEFINE_float("dropout", None, "Dropout rate.")
-flags.DEFINE_string("network", "lenet", "Model: lenet or nvidia.")
+flags.DEFINE_string("model", "lenet", "Model: lenet or nvidia.")
 flags.DEFINE_string("model_file", "model.h5", "Model file to save.")
 FLAGS = flags.FLAGS
 
@@ -38,13 +51,13 @@ def read_driving_log(csv_path, root):
 
 
 def images_generator(img_df, training=True, batch_size=32):
-  num = len(img_df)
   random.seed(1)
   while True:
     img_df = sku.shuffle(img_df)
     batch_images = []
     batch_angles = []
     for _, row in img_df.iterrows():
+      # Read center, left, and right images
       frame_images = [read_img(row[col]) for col in
                       ["center_img", "left_img", "right_img"]]
       angle = row["steering_angle"]
@@ -53,7 +66,7 @@ def images_generator(img_df, training=True, batch_size=32):
       batch_images.extend(frame_images)
       batch_angles.extend(frame_angles)
 
-      # Flipping image
+      # Flipping images
       if training:
         batch_images.extend([np.fliplr(img) for img in frame_images])
         batch_angles.extend([-angle for angle in frame_angles])
@@ -73,8 +86,9 @@ def read_img(img_path):
 
 def driving_model(img_df, batch_size=32):
   """Define and train driving model."""
-  train_df, valid_df = skms.train_test_split(img_df, test_size=0.2,
-                                             random_state=1, shuffle=True)
+  train_df, valid_df = skms.train_test_split(
+    img_df, test_size=FLAGS.validation_proportion,
+    random_state=1, shuffle=True)
   train_gen = images_generator(train_df, training=True, batch_size=batch_size)
   # Augmentation factor
   aug_factor = 2
@@ -86,9 +100,9 @@ def driving_model(img_df, batch_size=32):
   model.add(layers.Lambda(lambda x: x / 255.0 - 0.5, input_shape=(160, 320, 3)))
   model.add(layers.Cropping2D(cropping=((50, 20), (0, 0))))
 
-  if FLAGS.network == "lenet":
+  if FLAGS.model == "lenet":
     lenet_model(model)
-  elif FLAGS.network == "nvidia":
+  elif FLAGS.model == "nvidia":
     nvidia_model(model)
   else:
     raise ValueError("Invalid model.")
@@ -106,6 +120,8 @@ def driving_model(img_df, batch_size=32):
 
 
 def lenet_model(model):
+  """LeNet model."""
+
   # Conv1, output shape: (156, 316, 6)
   model.add(layers.Conv2D(filters=6, kernel_size=5, strides=1,
                           activation="relu"))
@@ -122,17 +138,16 @@ def lenet_model(model):
     model.add(layers.Dropout(FLAGS.dropout))
   # Flatten
   model.add(layers.Flatten())
-  # FC1:
+  # FC1
   model.add(layers.Dense(units=120, activation="relu"))
-  # Dropout?
-  # FC2:
+  # FC2
   model.add(layers.Dense(units=84, activation="relu"))
-  # Dropout?
   model.add(layers.Dense(1))
 
 
 def nvidia_model(model):
-  # https://devblogs.nvidia.com/deep-learning-self-driving-cars/
+  """Nvidia model, https://devblogs.nvidia.com/deep-learning-self-driving-cars/ """
+
   model.add(layers.BatchNormalization())
   model.add(layers.Conv2D(filters=24, kernel_size=5, strides=2,
                           activation="relu"))
