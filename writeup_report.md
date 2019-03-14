@@ -138,7 +138,7 @@ An Adam optimizer was used to train the model, so the learn rate was not tuned m
 
 #### 4. Appropriate training data
 
-I generated the training data by driving the car on on the road, closing to the
+I generated the training data by driving the car on the road, closing to the
 center lane as much as possible. 
 
 ### Architecture and Training
@@ -159,7 +159,7 @@ Testing on the simulator improved accordingly. The car went through the bridge,
 the curb after the bridge, until it drove into the lake.
 I then generated training data by driving the car in the second track.
 
-With training data from both tracks, the car can drive safely on the road of the first track.
+With training data from both tracks, the car can drive on the whole loop of the first track.
 
 
 #### 3. Creation of the Training Set & Training Process
